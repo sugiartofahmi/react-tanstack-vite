@@ -1,16 +1,19 @@
 # react-vite-tanstack
 
-A React + Vite + TanStack boilerplate with a layered `api/hooks/UI` architecture, modeled after production conventions. Ships with three example flows (Login, Register, Dashboard) wired end-to-end against a mocked API layer, ready to swap in a real backend.
+A production-grade React + Vite + TanStack boilerplate adopting a modern route-colocated feature-sliced architecture. Ships with three complete flows (Login, Register, Dashboard) wired against typed API layers with Zod schemas and standard error boundaries.
 
 ## Stack
 
-- **React 19** + **Vite**
-- **TanStack Router**: routing
-- **TanStack Query**: server state
-- **TanStack Store**: client state
-- **shadcn/ui** + Tailwind v4: UI
-- **react-hook-form** + **Zod**: forms and validation
-- **vitest** + **Playwright**: unit and e2e tests
+- **React 19** + **Vite 8**
+- **TanStack Router**: file-based routing with router context, loaders, and route-level permissions
+- **TanStack Query**: server state management via `queryOptions` and `useSuspenseQuery`
+- **TanStack Form**: form handling with Zod validation
+- **TanStack Store**: client UI and permission state
+- **TanStack Table**: headless data tables
+- **TanStack Virtual**: high-performance list and table virtualization
+- **shadcn/ui** + Tailwind v4: UI primitives
+- **Biome**: ultra-fast formatting and linting
+- **Vitest** + **Playwright**: colocated unit tests and E2E specs
 
 ## Getting started
 
@@ -27,9 +30,9 @@ pnpm dev
 | `pnpm dev`                          | Start the dev server                                                                                              |
 | `pnpm build`                        | Production build (`vite build` first, then `tsc`, in that order so `routeTree.gen.ts` exists before typechecking) |
 | `pnpm preview`                      | Preview the production build                                                                                      |
-| `pnpm lint`                         | ESLint                                                                                                            |
-| `pnpm format` / `pnpm format:check` | Prettier write / check                                                                                            |
-| `pnpm check`                        | `format` + `lint` in one go                                                                                       |
+| `pnpm lint`                         | Biome lint                                                                                                        |
+| `pnpm format` / `pnpm format:check` | Biome write / check                                                                                               |
+| `pnpm check`                        | Biome check and fix format + lint                                                                                 |
 | `pnpm test`                         | Unit tests (vitest)                                                                                               |
 | `pnpm test:watch`                   | Unit tests in watch mode                                                                                          |
 | `pnpm test:coverage`                | Unit tests with coverage                                                                                          |
@@ -40,27 +43,40 @@ pnpm dev
 
 ```
 src/
-  routes/          # TanStack Router, routing only, no business logic.
-                    # Route-local pieces live in a `-components/` subfolder.
-  apis/             # All data + logic, one folder per domain: api call,
-                    # types, Zod schema, and a query/form hook.
+  main.tsx                 # Root entrypoint, renders <RouterProvider>
+  router.tsx               # getRouter(): context, error & 404 boundaries, preloading
   components/
-    ui/              # shadcn primitives + app shell pieces (sidebar, navbar)
-    layouts/          # ProtectedLayout, PublicLayout
-  integrations/      # Per-library setup: axios, socket.io, TanStack Query/Store
-  libs/               # Generic utilities: cookies, cn(), ts-belt/ts-pattern re-exports
-  middlewares/         # Gatekeeping concerns: permission checks (RBAC)
-  test/                 # Vitest setup
-e2e/                     # Playwright specs
+    ui/                    # shadcn UI primitives + app shell (app-sidebar, navbar)
+    layouts/               # ProtectedLayout, PublicLayout
+    section-boundary.tsx   # Declarative Suspense + ErrorBoundary wrapper
+    route-error-screen.tsx # Route-level error and 403 Forbidden handler
+    not-found.tsx          # Default 404 page
+  libs/
+    axios/client.ts        # Axios instance with auth & 401 interceptor
+    auth/                  # Session resolution, token cookies, and /me query
+    permissions/           # PERMISSION constants, canAll/canAny, Guard, and route-guard
+    socket/client.ts       # Socket.IO client singleton
+    tanstack-query/        # Query client singleton & devtools
+    utils.ts               # cn() helper
+  routes/
+    __root.tsx             # Root route: beforeLoad resolves session & sets permissions
+    index.tsx              # Landing page (with _components/)
+    _public/               # Pathless public layout (redirects to /dashboard if logged in)
+      login/               # _schema/, _hooks/, _components/, index.tsx
+      register/            # _schema/, _hooks/, _components/, index.tsx
+    _authenticated/        # Pathless layout (redirects to /login if unauthenticated)
+      dashboard/           # _hooks/, _components/, _stores/, index.tsx
 ```
 
-Each layer has one job: `routes/` wires up URLs, `apis/` owns data and form logic, `components/` renders. Mock API functions (`login.api.ts`, `register.api.ts`, `dashboard.api.ts`) resolve after a fake delay instead of hitting a server, and each has a commented-out real `axios` call ready to swap in.
+## Architecture principles
+
+1. **Route colocation**: All logic specific to a route (`_hooks/`, `_schema/`, `_stores/`, `_components/`) lives alongside its `index.tsx` route file.
+2. **Lean Hooks Layer**: Hooks directly connect to the REST/oRPC client and define `queryOptions()` and mutations without redundant pass-through API wrappers.
+3. **Session & Permissions in Router Context**: Session is resolved once at `__root.tsx`'s `beforeLoad`, injecting `{ session, permissions }` into the router context.
+4. **Declarative Loading & Errors**: Data is prefetched via `ensureQueryData(queryOptions)` in route `loader`s and rendered with `useSuspenseQuery()` inside `<SectionBoundary>`.
+5. **Standardized Subpath Imports**: Internal imports use the standard `#/` prefix with explicit `.ts` / `.tsx` extensions.
 
 ## Testing
 
-- **Unit** (`src/**/*.test.ts`): co-located with the module under test, e.g. `src/libs/cookies.test.ts`.
-- **e2e** (`e2e/*.spec.ts`): full-flow checks against a running dev server.
-
-## Environment variables
-
-See `.env.example`. `VITE_API_BASE_URL` is the only one currently read (by the axios instance and the socket client) and defaults to `http://localhost:3100` if unset.
+- **Colocated Unit Tests** (`src/**/__tests__/*.test.{ts,tsx}`): Test files sit directly next to the module under test.
+- **E2E Tests** (`e2e/*.spec.ts`): End-to-end user flows run via Playwright.
