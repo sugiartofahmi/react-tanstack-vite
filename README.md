@@ -15,6 +15,11 @@ A production-grade React + Vite + TanStack boilerplate adopting a modern route-c
 - **Biome**: ultra-fast formatting and linting
 - **Vitest** + **Playwright**: colocated unit tests and E2E specs
 
+## Prerequisites
+
+- **Node.js**: `>=22.0.0`
+- **pnpm**: `>=10.0.0`
+
 ## Getting started
 
 ```bash
