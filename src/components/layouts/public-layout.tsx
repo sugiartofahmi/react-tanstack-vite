@@ -1,7 +1,13 @@
-import type { ReactNode } from 'react'
+import type { FC, ReactElement, ReactNode } from "react";
 
-export const PublicLayout = ({ children }: { children: ReactNode }) => (
-  <div className="flex min-h-screen items-center justify-center p-4">
-    {children}
-  </div>
-)
+type TPublicLayoutProps = {
+	children: ReactNode;
+};
+
+export const PublicLayout: FC<TPublicLayoutProps> = ({
+	children,
+}): ReactElement => (
+	<div className="flex min-h-screen items-center justify-center p-4">
+		{children}
+	</div>
+);
