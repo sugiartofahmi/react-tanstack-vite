@@ -1,28 +1,42 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { ActivityCalendar } from './-components/activity-calendar'
-import { ActivityChart } from './-components/activity-chart'
-import { ActivityList } from './-components/activity-list'
-import { useGetDashboardActivities } from '@/apis/dashboard/dashboard.hook'
+import { createFileRoute } from "@tanstack/react-router";
+import type { FC, ReactElement } from "react";
+import { SectionBoundary } from "#/components/section-boundary.tsx";
+import { PERMISSION } from "#/libs/permissions/permissions.ts";
+import { checkRoutePermissions } from "#/libs/permissions/route-guard.ts";
+import { ActivityCalendar } from "./_components/activity-calendar.tsx";
+import { ActivityChart } from "./_components/activity-chart.tsx";
+import { ActivityList } from "./_components/activity-list.tsx";
+import {
+	dashboardActivitiesQueryOptions,
+	useDashboardActivities,
+} from "./_hooks/use-dashboard.ts";
 
-const DashboardPage = () => {
-  const { activities, isEmpty, isLoading } = useGetDashboardActivities()
+const DashboardContent: FC = (): ReactElement => {
+	const { activities, isEmpty } = useDashboardActivities();
 
-  return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ActivityChart />
-        <ActivityCalendar />
-      </div>
-      <ActivityList
-        activities={activities}
-        isLoading={isLoading}
-        isEmpty={isEmpty}
-      />
-    </div>
-  )
-}
+	return (
+		<div className="space-y-4">
+			<h1 className="font-bold text-2xl">Dashboard</h1>
+			<div className="grid gap-4 lg:grid-cols-2">
+				<ActivityChart />
+				<ActivityCalendar />
+			</div>
+			<ActivityList activities={activities} isEmpty={isEmpty} />
+		</div>
+	);
+};
 
-export const Route = createFileRoute('/_authenticated/dashboard/')({
-  component: DashboardPage,
-})
+const DashboardPage: FC = (): ReactElement => (
+	<SectionBoundary errorMessage="Dashboard activities could not be loaded.">
+		<DashboardContent />
+	</SectionBoundary>
+);
+
+export const Route = createFileRoute("/_authenticated/dashboard/")({
+	beforeLoad: checkRoutePermissions({
+		permissions: [PERMISSION.DASHBOARD_READ],
+	}),
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(dashboardActivitiesQueryOptions()),
+	component: DashboardPage,
+});
